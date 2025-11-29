@@ -13,14 +13,13 @@ def download_youtube_video(url):
         video_streams = yt.streams.filter(type="video").order_by('resolution').desc()
         audio_stream = yt.streams.filter(only_audio=True).first()
 
-        print("Available video streams:")
-        for i, stream in enumerate(video_streams):
-            size = get_video_size(stream)
-            stream_type = "Progressive" if stream.is_progressive else "Adaptive"
-            print(f"{i}. Resolution: {stream.resolution}, Size: {size:.2f} MB, Type: {stream_type}")
-
-        choice = int(input("Enter the number of the video stream to download: "))
-        selected_stream = video_streams[choice]
+        # Auto-select highest quality (first in descending order)
+        selected_stream = video_streams[0]
+        
+        print(f"Auto-selected highest quality:")
+        size = get_video_size(selected_stream)
+        stream_type = "Progressive" if selected_stream.is_progressive else "Adaptive"
+        print(f"  Resolution: {selected_stream.resolution}, Size: {size:.2f} MB, Type: {stream_type}")
 
         if not os.path.exists('videos'):
             os.makedirs('videos')
