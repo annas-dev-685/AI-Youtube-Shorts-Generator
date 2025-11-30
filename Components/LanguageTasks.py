@@ -51,38 +51,80 @@ Return a JSON object with the following structure:
 
 def GetHighlight(Transcription):
     from langchain_openai import ChatOpenAI
-    llm = ChatOpenAI(
-        model="gpt-5-nano",  # Much cheaper than gpt-4o
-        temperature=1.0,
-        api_key = api_key
-    )
+    
+    try:
+        llm = ChatOpenAI(
+            model="gpt-5-nano",  # Much cheaper than gpt-4o
+            temperature=1.0,
+            api_key = api_key
+        )
 
-    from langchain.prompts import ChatPromptTemplate
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system",system),
-            ("user",Transcription)
-        ]
-    )
-    chain = prompt |llm.with_structured_output(JSONResponse,method="function_calling")
-    response = chain.invoke({"Transcription":Transcription})
-    Start,End = int(response.start), int(response.end)
-    
-    # Log the selected segment
-    print(f"\n{'='*60}")
-    print(f"SELECTED SEGMENT DETAILS:")
-    print(f"Time: {Start}s - {End}s ({End-Start}s duration)")
-    print(f"Content: {response.content}")
-    print(f"{'='*60}\n")
-    
-    # print(f"Start is {Start}")
-    # print(f"End is {End}\n\n")
-    if Start==End:
-        Ask = input("Error - Get Highlights again (y/n) -> ").lower()
-        if Ask == "y":
-            Start, End = GetHighlight(Transcription)
-        return Start, End
-    return Start,End
+        from langchain.prompts import ChatPromptTemplate
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system",system),
+                ("user",Transcription)
+            ]
+        )
+        chain = prompt |llm.with_structured_output(JSONResponse,method="function_calling")
+        
+        print("Calling LLM for highlight selection...")
+        response = chain.invoke({"Transcription":Transcription})
+        
+        # Validate response
+        if not response:
+            print("ERROR: LLM returned empty response")
+            return None, None
+        
+        if not hasattr(response, 'start') or not hasattr(response, 'end'):
+            print(f"ERROR: Invalid response structure: {response}")
+            return None, None
+        
+        try:
+            Start = int(response.start)
+            End = int(response.end)
+        except (ValueError, TypeError) as e:
+            print(f"ERROR: Could not parse start/end times from response")
+            print(f"  response.start: {response.start}")
+            print(f"  response.end: {response.end}")
+            print(f"  Error: {e}")
+            return None, None
+        
+        # Validate times
+        if Start < 0 or End < 0:
+            print(f"ERROR: Negative time values - Start: {Start}s, End: {End}s")
+            return None, None
+        
+        if End <= Start:
+            print(f"ERROR: Invalid time range - Start: {Start}s, End: {End}s (end must be > start)")
+            return None, None
+        
+        # Log the selected segment
+        print(f"\n{'='*60}")
+        print(f"SELECTED SEGMENT DETAILS:")
+        print(f"Time: {Start}s - {End}s ({End-Start}s duration)")
+        print(f"Content: {response.content}")
+        print(f"{'='*60}\n")
+        
+        if Start==End:
+            Ask = input("Error - Get Highlights again (y/n) -> ").lower()
+            if Ask == "y":
+                Start, End = GetHighlight(Transcription)
+            return Start, End
+        return Start,End
+        
+    except Exception as e:
+        print(f"\n{'='*60}")
+        print(f"ERROR IN GetHighlight FUNCTION:")
+        print(f"{'='*60}")
+        print(f"Exception type: {type(e).__name__}")
+        print(f"Exception message: {str(e)}")
+        print(f"\nTranscription length: {len(Transcription)} characters")
+        print(f"First 200 chars: {Transcription[:200]}...")
+        print(f"{'='*60}\n")
+        import traceback
+        traceback.print_exc()
+        return None, None
 
 if __name__ == "__main__":
     print(GetHighlight(User))

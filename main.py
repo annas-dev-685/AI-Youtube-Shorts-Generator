@@ -81,6 +81,22 @@ if Vid:
             print("Analyzing transcription to find best highlight...")
             start , stop = GetHighlight(TransText)
             
+            # Check if GetHighlight failed
+            if start is None or stop is None:
+                print(f"\n{'='*60}")
+                print("ERROR: Failed to get highlight from LLM")
+                print(f"{'='*60}")
+                print("This could be due to:")
+                print("  - OpenAI API issues or rate limiting")
+                print("  - Invalid API key")
+                print("  - Network connectivity problems")
+                print("  - Malformed transcription data")
+                print(f"\nTranscription summary:")
+                print(f"  Total segments: {len(transcriptions)}")
+                print(f"  Total length: {len(TransText)} characters")
+                print(f"{'='*60}\n")
+                sys.exit(1) # Exit gracefully
+            
             # Interactive approval loop with timeout (skip if auto-approve)
             import select
             
@@ -144,9 +160,9 @@ if Vid:
                 print("Step 3/4: Adding subtitles to video...")
                 add_subtitles_to_video(temp_cropped, temp_subtitled, transcriptions, video_start_time=start)
                 
-                # Generate final output filename
+                # Generate final output filename with random identifier
                 clean_title = clean_filename(video_title) if video_title else "output"
-                final_output = f"{clean_title}_short.mp4"
+                final_output = f"{clean_title}_{session_id}_short.mp4"
                 
                 print("Step 4/4: Adding audio to final video...")
                 combine_videos(temp_clip, temp_subtitled, final_output)

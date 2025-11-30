@@ -72,6 +72,7 @@ AI-powered tool to automatically generate engaging YouTube Shorts from long-form
 ```bash
 ./run.sh
 # Then enter YouTube URL when prompted
+# You'll be able to select video resolution (5s timeout, auto-selects highest)
 ```
 
 ### With YouTube URL (Command-Line)
@@ -97,22 +98,40 @@ Or without auto-approve (will prompt for each):
 xargs -a urls.txt -I{} ./run.sh {}
 ```
 
+## Resolution Selection
+
+When downloading from YouTube, you'll see:
+```
+Available video streams:
+  0. Resolution: 1080p, Size: 45.2 MB, Type: Adaptive
+  1. Resolution: 720p, Size: 28.1 MB, Type: Adaptive
+  2. Resolution: 480p, Size: 15.3 MB, Type: Adaptive
+
+Select resolution number (0-2) or wait 5s for auto-select...
+Auto-selecting highest quality in 5 seconds...
+```
+
+- **Enter a number** to select that resolution immediately
+- **Wait 5 seconds** to auto-select highest quality (1080p)
+- **Invalid input** falls back to highest quality
+
 ## How It Works
 
-1. **Download/Load**: Fetches from YouTube (highest quality) or loads local file
-2. **Extract Audio**: Converts to WAV format
-3. **Transcribe**: GPU-accelerated Whisper transcription (~30s for 5min video)
-4. **AI Analysis**: GPT-4o-mini selects most engaging 2-minute segment
-5. **Interactive Approval**: Review selection, regenerate if needed, or auto-approve in 15s
-6. **Extract Clip**: Crops selected timeframe
-7. **Smart Crop**: 
+1. **Download/Load**: Fetches from YouTube or loads local file
+2. **Resolution Selection**: Choose video quality (5s timeout, auto-selects highest)
+3. **Extract Audio**: Converts to WAV format
+4. **Transcribe**: GPU-accelerated Whisper transcription (~30s for 5min video)
+5. **AI Analysis**: GPT-4o-mini selects most engaging 2-minute segment
+6. **Interactive Approval**: Review selection, regenerate if needed, or auto-approve in 15s
+7. **Extract Clip**: Crops selected timeframe
+8. **Smart Crop**: 
    - Detects faces → static face-centered vertical crop
    - No faces → half-width screen recording with motion tracking
-8. **Add Subtitles**: Burns Franklin Gothic captions with blue text/black outline
-9. **Combine Audio**: Merges audio track with final video
-10. **Cleanup**: Removes all temporary files
+9. **Add Subtitles**: Burns Franklin Gothic captions with blue text/black outline
+10. **Combine Audio**: Merges audio track with final video
+11. **Cleanup**: Removes all temporary files
 
-**Output**: `{video-title}_short.mp4` with slugified filename
+**Output**: `{video-title}_{session-id}_short.mp4` with slugified filename and unique identifier
 
 ## Interactive Workflow
 
@@ -158,10 +177,25 @@ Edit `Components/FaceCrop.py`:
 - **Smoothing**: Line 115 (`0.90 * smoothed_x + 0.10 * target_x`) - currently 90%/10%
 - **Motion threshold**: Line 107 (`motion_threshold = 2.0`)
 
+### Face Detection
+Edit `Components/FaceCrop.py`:
+- **Sensitivity**: Line 37 (`minNeighbors=8`) - Higher = fewer false positives
+- **Minimum size**: Line 37 (`minSize=(30, 30)`) - Minimum face size in pixels
+
 ### Video Quality
 Edit `Components/Subtitles.py` and `Components/FaceCrop.py`:
 - **Bitrate**: Subtitles.py line 74 (`bitrate='3000k'`)
 - **Preset**: Subtitles.py line 73 (`preset='medium'`)
+
+## Output Files
+
+Final videos are named: `{video-title}_{session-id}_short.mp4`
+
+Example: `my-awesome-video_a1b2c3d4_short.mp4`
+
+- **Slugified title**: Lowercase, hyphens instead of spaces
+- **Session ID**: 8-character unique identifier for traceability
+- **Resolution**: Matches source video height (720p → 404x720, 1080p → 607x1080)
 
 ## Concurrent Execution
 
