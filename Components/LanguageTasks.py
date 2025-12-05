@@ -5,9 +5,12 @@ import os
 load_dotenv()
 
 api_key = os.getenv("OPENAI_API")
+# Provider: 'openai' or 'gemini'. Default to 'openai' for backward compatibility.
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").strip().lower()
 
-if not api_key:
-    raise ValueError("API key not found. Make sure it is defined in the .env file.")
+# Note: Do not require an API key at import time. We'll validate keys depending on
+# the selected provider when creating the LLM instance so the module can be used
+# even if only Gemini (or OpenAI) is configured.
 
 class JSONResponse(BaseModel):
     """
@@ -50,23 +53,53 @@ Return a JSON object with the following structure:
 
 
 def GetHighlight(Transcription):
-    from langchain_openai import ChatOpenAI
-    
+    # Create LLM based on provider selection (OpenAI or Google Gemini)
+    llm = None
     try:
-        llm = ChatOpenAI(
-            model="gpt-5-nano",  # Much cheaper than gpt-4o
-            temperature=1.0,
-            api_key = api_key
-        )
+        if LLM_PROVIDER == "openai":
+            from langchain_openai import ChatOpenAI
+            if not api_key:
+                raise ValueError("OPENAI_API not set for OpenAI provider. Set OPENAI_API in .env")
+            llm = ChatOpenAI(
+                model="gpt-5-nano",
+                temperature=1.0,
+                api_key=api_key,
+            )
+        elif LLM_PROVIDER in ("gemini", "google", "google_gemini"):
+            # Try a few possible langchain Google Gemini chat model class locations
+            gemini_api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GOOGLE_API")
+            if not gemini_api_key:
+                raise ValueError("GOOGLE_API_KEY (or GOOGLE_API) not set for Gemini provider. Set it in .env")
+            created = False
+            try:
+                # from langchain.chat_models import ChatGoogleGemini
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=gemini_api_key)
+                created = True
+            except Exception as e:
+                print("Could not import ChatGoogleGenerativeAI from langchain_google_genai:", str(e))
+                pass
+            if not created:
+                raise ImportError(
+                    "Gemini provider requested but no compatible langchain Google chat model is available. \n"
+                    "Install or upgrade the langchain Google/vertex packages or set LLM_PROVIDER=openai."
+                )
+        else:
+            raise ValueError(f"Unknown LLM_PROVIDER '{LLM_PROVIDER}'. Supported: openai, gemini")
 
-        from langchain.prompts import ChatPromptTemplate
+        print(f"Using LLM provider: {LLM_PROVIDER}")
+
+        from langchain_core.prompts import ChatPromptTemplate
         prompt = ChatPromptTemplate.from_messages(
             [
-                ("system",system),
-                ("user",Transcription)
+                ("system", system),
+                ("user", Transcription)
             ]
         )
-        chain = prompt |llm.with_structured_output(JSONResponse,method="function_calling")
+
+        # Apply structured output using function calling
+        structured_llm = llm.with_structured_output(JSONResponse, method="function_calling")
+        chain = prompt | structured_llm
         
         print("Calling LLM for highlight selection...")
         response = chain.invoke({"Transcription":Transcription})

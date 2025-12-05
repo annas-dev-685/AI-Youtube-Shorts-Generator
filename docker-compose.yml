@@ -37,3 +37,4 @@ services:
     # Command can be overridden
     # Example: docker-compose run youtube-shorts-generator ./run.sh "https://youtu.be/VIDEO_ID"
     command: ./run.sh
+

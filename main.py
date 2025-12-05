@@ -25,6 +25,8 @@ if len(sys.argv) > 1:
 else:
     url_or_file = input("Enter YouTube video URL or local video file path: ")
 
+GetHighlight('test')  # Test call to ensure function is defined
+
 # Check if input is a local file
 video_title = None
 if os.path.isfile(url_or_file):
@@ -64,7 +66,7 @@ if Vid:
     temp_clip = f"temp_clip_{session_id}.mp4"
     temp_cropped = f"temp_cropped_{session_id}.mp4"
     temp_subtitled = f"temp_subtitled_{session_id}.mp4"
-    
+        
     Audio = extractAudio(Vid, audio_file)
     if Audio:
 
